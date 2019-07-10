@@ -1,0 +1,3 @@
+logstash6_enable=YES
+logstash6 java home="/usr/local/openjdk8"
+

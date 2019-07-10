@@ -1,0 +1,112 @@
+#!/bin/sh
+
+# Configuration settings for Logstash in /etc/rc.conf:
+#
+# logstash14_enable (bool):
+#   Default value: "NO"
+#   Flag that determines whether Logstash is enabled.
+#
+# logstash14_home (string):
+#   Default value: "/opt/logstash-1.4.1"
+#   Logstash installation directory.
+#
+# logstash14_config (string):
+#   Default value: /usr/local/etc/${name}/${name}.conf
+#   Logstash configuration file path.
+#
+# logstash14_mode (string):
+#   Default value: "standalone"
+#   Valid options:
+#     "standalone": agent, web & elasticsearch
+#     "web": Starts logstash as a web ui
+#     "agent": Justs works as a log shipper 
+#
+# logstash14_port (int):
+#   Default value: 9292
+#   Port of the Kibana web interface.
+# 
+# logstash14_log (bool):
+#   Set to "NO" by default.
+#   Set it to "YES" to enable logstash logging to file
+#   Default output to /var/log/logstash.log
+#
+# logstash14_log_file (string):
+#   Default value: "${logdir}/${name}.log"
+#   Log file path.
+#
+# logstash14_java_home (string):
+#   Default value: "/usr/local/openjdk6"
+#   Root directory of the desired Java SDK.
+#   The JAVA_HOME environment variable is set with the contents of this
+#   variable.
+#
+# logstash14_java_opts (string):
+#   Default value: ""
+#   Options to pass to the Java Virtual Machine.
+#   The JAVA_OPTS environment variable is set with the contents of this
+#   variable.
+#
+# logstash14_elastic_datadir (string):
+#   Default value: "/var/db/logstash14".
+#   Data directory of the embedded ElasticSearch instance.
+#
+
+. /etc/rc.subr
+
+name=logstash14
+rcvar=logstash14_enable
+
+load_rc_config ${name}
+
+logdir="/var/log"
+
+: ${logstash14_enable="NO"}
+: ${logstash14_home="/opt/logstash-1.4.1"}
+: ${logstash14_config="/usr/local/etc/${name}/${name}.conf"}
+: ${logstash14_log="NO"}
+: ${logstash14_mode="standalone"}
+: ${logstash14_port="9292"}
+: ${logstash14_log_file="${logdir}/${name}.log"}
+: ${logstash14_elastic_datadir="/var/db/logstash14"}
+: ${logstash14_java_home="/usr/local/openjdk6"}
+: ${logstash14_java_opts=""}
+
+piddir=/var/run/${name}
+pidfile=${piddir}/${name}.pid
+
+if [ -d $piddir ]; then
+  mkdir -p $piddir
+fi
+
+logstash14_cmd="${logstash14_home}/bin/logstash"
+procname="${logstash14_java_home}/bin/java"
+
+logstash14_chdir=${logstash14_home}
+logstash14_log_options=""
+logstash14_elastic_options=""
+
+if checkyesno logstash14_log; then
+  logstash14_log_options=" --log ${logstash14_log_file}"
+fi
+
+if [ ${logstash14_mode} = "standalone" ]; then
+  logstash14_args="agent -f ${logstash14_config} ${logstash14_log_options} -- web --port ${logstash14_port}"
+  logstash14_elastic_options="-Des.path.data=${logstash14_elastic_datadir}"
+elif [ ${logstash14_mode} = "agent" ]; then
+  logstash14_args="agent -f ${logstash14_config} ${logstash14_log_options}"
+elif [ ${logstash14_mode} = "web" ]; then
+  logstash14_args="web --port ${logstash14_port} ${logstash14_log_options}"
+fi
+
+JAVA_OPTS="${logstash14_java_opts} ${logstash14_elastic_options}"
+JAVA_HOME="${logstash14_java_home}"
+export JAVA_OPTS
+export JAVA_HOME
+
+command="/usr/sbin/daemon"
+command_args="-f -p ${pidfile} ${logstash14_cmd} ${logstash14_args}"
+required_files="${logstash14_home} ${logstash14_java_home} ${logstash14_cmd} ${logstash14_config}"
+
+run_rc_command "$1"
+
+
